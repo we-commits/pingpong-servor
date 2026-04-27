@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>乒乓球发球机控制</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #e8f4f8;
+            border-radius: 5px;
+        }
+        .control {
+            margin: 20px 0;
+        }
+        .control-item {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #connect-btn {
+            background-color: #3498db;
+            color: white;
+        }
+        #start-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+        #stop-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .value {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>乒乓球发球机控制</h1>
+        
+        <div class="status">
+            <h2>连接状态</h2>
+            <div id="connection-status">未连接</div>
+            <button id="connect-btn">连接蓝牙设备</button>
+        </div>
+        
+        <div class="status">
+            <h2>设备状态</h2>
+            <div id="device-status">等待连接...</div>
+        </div>
+        
+        <div class="control">
+            <h2>控制参数</h2>
+            
+            <div class="control-item">
+                <label for="speed">发球速度: <span id="speed-value" class="value">50</span>%</label>
+                <input type="range" id="speed" min="0" max="100" value="50">
+            </div>
+            
+            <div class="control-item">
+                <label for="angle">发球角度: <span id="angle-value" class="value">0</span>°</label>
+                <input type="range" id="angle" min="-45" max="45" value="0">
+            </div>
+            
+            <div class="control-item">
+                <label for="frequency">发球频率: <span id="frequency-value" class="value">2</span> 球/秒</label>
+                <input type="range" id="frequency" min="0.5" max="5" step="0.5" value="2">
+            </div>
+            
+            <div class="control-item">
+                <label for="mode">发球模式:</label>
+                <select id="mode">
+                    <option value="manual">手动模式</option>
+                    <option value="automatic">自动模式</option>
+                    <option value="random">随机模式</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button id="start-btn" disabled>开始发球</button>
+            <button id="stop-btn" disabled>停止发球</button>
+        </div>
+    </div>
+    
+    <script src="bluetooth_client.js"></script>
+    <script>
+        // 创建蓝牙客户端实例
+        const bluetoothClient = new BluetoothClient();
+        
+        // DOM 元素
+        const connectBtn = document.getElementById('connect-btn');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const connectionStatus = document.getElementById('connection-status');
+        const deviceStatus = document.getElementById('device-status');
+        const speedSlider = document.getElementById('speed');
+        const speedValue = document.getElementById('speed-value');
+        const angleSlider = document.getElementById('angle');
+        const angleValue = document.getElementById('angle-value');
+        const frequencySlider = document.getElementById('frequency');
+        const frequencyValue = document.getElementById('frequency-value');
+        const modeSelect = document.getElementById('mode');
+        
+        // 设置回调
+        bluetoothClient.on('connect', () => {
+            connectionStatus.textContent = '已连接';
+            connectionStatus.style.backgroundColor = '#d4edda';
+            connectBtn.textContent = '断开连接';
+            startBtn.disabled = false;
+            stopBtn.disabled = false;
+        });
+        
+        bluetoothClient.on('disconnect', () => {
+            connectionStatus.textContent = '未连接';
+            connectionStatus.style.backgroundColor = '#f8d7da';
+            connectBtn.textContent = '连接蓝牙设备';
+            startBtn.disabled = true;
+            stopBtn.disabled = true;
+            deviceStatus.textContent = '等待连接...';
+        });
+        
+        bluetoothClient.on('stateUpdate', (state) => {
+            deviceStatus.textContent = `状态: ${state.isRunning ? '运行中' : '停止'} - 速度: ${state.speed}% - 角度: ${state.angle}° - 频率: ${state.frequency}球/秒`;
+            
+            // 更新滑块值
+            speedSlider.value = state.speed;
+            speedValue.textContent = state.speed;
+            angleSlider.value = state.angle;
+            angleValue.textContent = state.angle;
+            frequencySlider.value = state.frequency;
+            frequencyValue.textContent = state.frequency;
+            modeSelect.value = state.mode;
+        });
+        
+        bluetoothClient.on('error', (error) => {
+            alert('错误: ' + error);
+        });
+        
+        // 事件监听器
+        connectBtn.addEventListener('click', async () => {
+            if (bluetoothClient.isConnected) {
+                await bluetoothClient.disconnect();
+            } else {
+                await bluetoothClient.connect();
+            }
+        });
+        
+        startBtn.addEventListener('click', async () => {
+            await bluetoothClient.updateParameters({
+                speed: parseInt(speedSlider.value),
+                angle: parseInt(angleSlider.value),
+                frequency: parseFloat(frequencySlider.value),
+                mode: modeSelect.value
+            });
+            await bluetoothClient.startServe();
+        });
+        
+        stopBtn.addEventListener('click', async () => {
+            await bluetoothClient.stopServe();
+        });
+        
+        // 滑块值变化
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = speedSlider.value;
+        });
+        
+        angleSlider.addEventListener('input', () => {
+            angleValue.textContent = angleSlider.value;
+        });
+        
+        frequencySlider.addEventListener('input', () => {
+            frequencyValue.textContent = frequencySlider.value;
+        });
+    </script>
+</body>
+</html>
